@@ -7,18 +7,32 @@ use std::process;
 use csv::{ReaderBuilder, Trim};
 
 use crate::account::Account;
+#[cfg(feature = "extended")]
 use crate::account_repository::AccountRepository;
+#[cfg(feature = "extended")]
+use crate::cached_amounts::CachedAmounts;
 use crate::engine::Engine;
+#[cfg(feature = "extended")]
 use crate::engine_extended::EngineExtended;
+#[cfg(feature = "simple")]
 use crate::engine_simple::EngineSimple;
 use crate::transaction::Transaction;
 
-mod engine_simple;
-mod engine_extended;
-mod account_repository;
 mod account;
 mod transaction;
 mod engine;
+
+#[cfg(feature = "simple")]
+mod engine_simple;
+
+#[cfg(feature = "extended")]
+mod engine_extended;
+
+#[cfg(feature = "extended")]
+mod account_repository;
+
+#[cfg(feature = "extended")]
+mod cached_amounts;
 
 fn run() -> Result<(), Box<dyn Error>> {
     let file_path = get_first_arg()?;
@@ -34,11 +48,11 @@ fn run() -> Result<(), Box<dyn Error>> {
         transactions.push(record);
     }
 
-    #[cfg(feature="simple")]
+    #[cfg(feature = "simple")]
     let mut engine = EngineSimple::new();
 
-    #[cfg(feature="extended")]
-    let mut engine = EngineExtended::new(AccountRepository::new());
+    #[cfg(feature = "extended")]
+    let mut engine = EngineExtended::new(AccountRepository::new(), CachedAmounts::new(), CachedAmounts::new());
 
     // Returning a pair here so that we can handle valid transactions and report errors for invalid ones
     let (accounts, errors) = engine.analyze(transactions);
