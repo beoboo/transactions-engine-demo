@@ -28,4 +28,7 @@ the extended engine can be enabled with:
 cargo run --features=extended transactions.csv > accounts.csv
 ```
 
+This extended version contains a method (analyze_transaction) that 
+could be used to stream transactions.
+
 NB: extended engine is not unit tested, but tests can be easily ported.
