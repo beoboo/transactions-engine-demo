@@ -77,9 +77,9 @@ impl Engine for EngineExtended {
                 }
                 "chargeback" => {
                     let back_chargeable = match self.disputed_transactions.get(transaction.tx) {
-                        Some(amount) => amount.clone(),
+                        Some(amount) => amount,
                         None => {
-                            errors.push(format!("Could not find disputed transaction \"{}\" to resolve", transaction.tx));
+                            errors.push(format!("Could not find disputed transaction \"{}\" to charge back", transaction.tx));
                             continue;
                         }
                     };
@@ -92,7 +92,9 @@ impl Engine for EngineExtended {
                         }
                     };
                 }
-                t => panic!("Unhandled transaction type: {}", t),
+                t => {
+                    errors.push(format!("Unhandled transaction type: \"{}\"", t));
+                },
             };
         }
 

@@ -13,7 +13,7 @@ impl EngineSimple {
 
 impl Engine for EngineSimple {
     fn analyze(&mut self, transactions: Vec<Transaction>) -> (Vec<Account>, Vec<String>) {
-        let mut accounts : HashMap<u16, Account> = HashMap::new();
+        let mut accounts: HashMap<u16, Account> = HashMap::new();
         let mut applied_transactions = HashMap::new();
         let mut disputed_transactions = HashMap::new();
         let mut errors = vec![];
@@ -42,6 +42,14 @@ impl Engine for EngineSimple {
                             errors.push(format!("Could not find applied transaction \"{}\" to dispute", transaction.tx));
                             continue;
                         }
+                    };
+
+                    match disputed_transactions.get(&transaction.tx) {
+                        Some(_) => {
+                            errors.push(format!("Could not dispute same transaction \"{}\" twice", transaction.tx));
+                            continue;
+                        }
+                        None => {}
                     };
 
                     match account.dispute(disputable) {
@@ -73,7 +81,7 @@ impl Engine for EngineSimple {
                     let back_chargeable = match disputed_transactions.get(&transaction.tx) {
                         Some(amount) => amount.clone(),
                         None => {
-                            errors.push(format!("Could not find disputed transaction \"{}\" to resolve", transaction.tx));
+                            errors.push(format!("Could not find disputed transaction \"{}\" to charge back", transaction.tx));
                             continue;
                         }
                     };
@@ -86,7 +94,9 @@ impl Engine for EngineSimple {
                         }
                     };
                 }
-                t => panic!("Unhandled transaction type: {}", t),
+                t => {
+                    errors.push(format!("Unhandled transaction type: \"{}\"", t));
+                },
             };
         }
 
@@ -99,6 +109,7 @@ mod tests {
     use hamcrest::*;
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
+
     use crate::{Account, Transaction};
 
     use super::*;
@@ -169,6 +180,21 @@ mod tests {
     }
 
     #[test]
+    fn test_cannot_dispute_twice() {
+        let mut engine = EngineSimple::new();
+
+        let (accounts, errors) = engine.analyze(vec![
+            Transaction::new("deposit".into(), CLIENT_ID, 1, dec!(100.0)),
+            Transaction::new("deposit".into(), CLIENT_ID, 2, dec!(100.0)),
+            Transaction::new("dispute".into(), CLIENT_ID, 2, dec!(0.0)),
+            Transaction::new("dispute".into(), CLIENT_ID, 2, dec!(0.0)),
+        ]);
+
+        assert_account(&accounts[0], dec!(100.0), dec!(100.0), dec!(200.0), false);
+        assert_eq!(errors.len(), 1);
+    }
+
+    #[test]
     fn test_ignore_dispute_for_unknown_transaction() {
         let mut engine = EngineSimple::new();
 
@@ -179,7 +205,6 @@ mod tests {
 
         assert_account(&accounts[0], dec!(100.0), dec!(0.0), dec!(100.0), false);
         assert_eq!(errors.len(), 1);
-
     }
 
     #[test]
@@ -194,6 +219,22 @@ mod tests {
 
         assert_account(&accounts[0], dec!(100.0), dec!(0.0), dec!(100.0), false);
         assert_eq!(errors.len(), 0);
+    }
+
+    #[test]
+    fn test_cannot_resolve_twice() {
+        let mut engine = EngineSimple::new();
+
+        let (accounts, errors) = engine.analyze(vec![
+            Transaction::new("deposit".into(), CLIENT_ID, 1, dec!(100.0)),
+            Transaction::new("deposit".into(), CLIENT_ID, 2, dec!(100.0)),
+            Transaction::new("dispute".into(), CLIENT_ID, 2, dec!(0.0)),
+            Transaction::new("resolve".into(), CLIENT_ID, 2, dec!(0.0)),
+            Transaction::new("resolve".into(), CLIENT_ID, 2, dec!(0.0)),
+        ]);
+
+        assert_account(&accounts[0], dec!(200.0), dec!(0.0), dec!(200.0), false);
+        assert_eq!(errors.len(), 1);
     }
 
     #[test]
@@ -234,6 +275,22 @@ mod tests {
 
         assert_account(&accounts[0], dec!(0.0), dec!(0.0), dec!(0.0), true);
         assert_eq!(errors.len(), 0);
+    }
+
+    #[test]
+    fn test_cannot_chargeback_twice() {
+        let mut engine = EngineSimple::new();
+
+        let (accounts, errors) = engine.analyze(vec![
+            Transaction::new("deposit".into(), CLIENT_ID, 1, dec!(100.0)),
+            Transaction::new("deposit".into(), CLIENT_ID, 2, dec!(100.0)),
+            Transaction::new("dispute".into(), CLIENT_ID, 2, dec!(0.0)),
+            Transaction::new("chargeback".into(), CLIENT_ID, 2, dec!(0.0)),
+            Transaction::new("chargeback".into(), CLIENT_ID, 2, dec!(0.0)),
+        ]);
+
+        assert_account(&accounts[0], dec!(100.0), dec!(0.0), dec!(100.0), true);
+        assert_eq!(errors.len(), 1);
     }
 
     #[test]

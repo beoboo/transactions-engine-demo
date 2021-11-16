@@ -27,3 +27,5 @@ the extended engine can be enabled with:
 ```bash
 cargo run --features=extended transactions.csv > accounts.csv
 ```
+
+NB: extended engine is not unit tested, but tests can be easily ported.
